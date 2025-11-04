@@ -16,6 +16,13 @@ public class Book {
     @Column(nullable = false)
     private String author;
 
+    public Book() {}
+
+    public Book(@NotNull String title, @NotNull String author) {
+        this.title = title;
+        this.author = author;
+    }
+
     // Getters and Setters
     public Long getId() {
         return id;
