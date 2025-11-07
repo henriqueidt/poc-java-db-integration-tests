@@ -2,25 +2,30 @@ package com.example.poc_java_db_integration_tests;
 
 import com.example.poc_java_db_integration_tests.model.Book;
 import com.example.poc_java_db_integration_tests.repository.BookRepository;
-import io.restassured.RestAssured;
-import io.restassured.http.ContentType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.shaded.com.fasterxml.jackson.databind.ObjectMapper;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
 import java.util.List;
 
-import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureMockMvc
 class ControllerTest {
 
 	@LocalServerPort
@@ -46,16 +51,18 @@ class ControllerTest {
 	}
 
 	@Autowired
+	private MockMvc mockMvc;
+
+	@Autowired
 	BookRepository bookRepository;
 
 	@BeforeEach
 	void setup() {
-		RestAssured.baseURI = "http://localhost:" + port;
 		bookRepository.deleteAll();
 	}
 
 	@Test
-	void shouldGetAllBooks() {
+	void shouldGetAllBooks() throws Exception {
 		List<Book> books = List.of(
 				new Book("The Hobbit", "J.R.R. Tolkien"),
 				new Book("1984", "George Orwell"),
@@ -63,31 +70,42 @@ class ControllerTest {
 		);
 		bookRepository.saveAll(books);
 
-		given()
-				.contentType(ContentType.JSON)
-				.when()
-				.get("/api/books")
-				.then()
-				.statusCode(200)
-				.body(".", hasSize(3));
+		mockMvc.perform(get("/api/books")
+						.contentType(MediaType.APPLICATION_JSON))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$", hasSize(3)));
 	}
 
 	@Test
-	void shouldGetAllBooksMatchingKeyword() {
+	void shouldGetAllBooksMatchingKeyword() throws Exception {
 		List<Book> books = List.of(
 				new Book("The Hobbit", "J.R.R. Tolkien"),
 				new Book("1984", "George Orwell"),
+				new Book("The lord of the Rings", "J.R.R. Tolkien"),
 				new Book("To Kill a Mockingbird", "Harper Lee")
 		);
+
+		List<Book> expectedBooks = List.of(
+				new Book("The Hobbit", "J.R.R. Tolkien"),
+				new Book("The lord of the Rings", "J.R.R. Tolkien")
+		);
+
+		ObjectMapper objectMapper = new ObjectMapper();
+		String expectedJson = objectMapper.writeValueAsString(expectedBooks);
+
 		bookRepository.saveAll(books);
 
-		given()
-				.contentType(ContentType.JSON)
-				.queryParam("keyword", "George")
-				.when()
-				.get("/api/books/search")
-				.then()
-				.statusCode(200)
-				.body(".", hasSize(1));
+		mockMvc.perform(get("/api/books/search")
+						.param("keyword", "Tolkien")
+						.contentType(MediaType.APPLICATION_JSON))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$", hasSize(2)))
+				.andExpect(jsonPath("$[0].title").value("The Hobbit"))
+				.andExpect(jsonPath("$[0].author").value("J.R.R. Tolkien"))
+				.andExpect(jsonPath("$[1].title").value("The lord of the Rings"))
+				.andExpect(jsonPath("$[1].author").value("J.R.R. Tolkien"));
+
+
+
 	}
 }
