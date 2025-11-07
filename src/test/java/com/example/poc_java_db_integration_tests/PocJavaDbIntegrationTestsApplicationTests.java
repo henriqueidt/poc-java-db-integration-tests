@@ -71,4 +71,23 @@ class ControllerTest {
 				.statusCode(200)
 				.body(".", hasSize(3));
 	}
+
+	@Test
+	void shouldGetAllBooksMatchingKeyword() {
+		List<Book> books = List.of(
+				new Book("The Hobbit", "J.R.R. Tolkien"),
+				new Book("1984", "George Orwell"),
+				new Book("To Kill a Mockingbird", "Harper Lee")
+		);
+		bookRepository.saveAll(books);
+
+		given()
+				.contentType(ContentType.JSON)
+				.queryParam("keyword", "George")
+				.when()
+				.get("/api/books/search")
+				.then()
+				.statusCode(200)
+				.body(".", hasSize(1));
+	}
 }

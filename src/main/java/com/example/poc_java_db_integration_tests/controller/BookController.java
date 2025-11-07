@@ -21,6 +21,11 @@ public class BookController {
         return bookRepository.findAll();
     }
 
+    @GetMapping("/search")
+    public List searchBooksByKeyword(@RequestParam String keyword) {
+        return bookRepository.searchByKeyword(keyword);
+    }
+
     @GetMapping("/title/{title}")
     public List getBooksByTitle(@PathVariable String title) {
         return bookRepository.findByTitle(title);
